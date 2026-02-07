@@ -1,0 +1,221 @@
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+#include <SPI.h>
+#include <SD.h>
+
+// ---------------- LCD I2C ----------------
+LiquidCrystal_I2C lcd(0x27, 16, 2); // cambia a 0x3F si no aparece nada
+
+// ---------------- PINES ----------------
+#define LED_PIN_1 3
+#define LED_PIN_2 2
+#define LED_PIN_3 A0
+
+#define BUTTON_CHOOSE 4
+#define BUTTON_CHANGE 5
+
+#define SD_CS_PIN 10
+
+// ---------------- CONFIG ----------------
+const unsigned long LED_INTERVAL = 2000;
+const unsigned long DEBOUNCE_TIME = 50;
+
+// ---------------- ESTADOS ----------------
+enum GameState {
+  WAIT_CHOOSE,
+  FINAL_CHOICE,
+  RESULT
+};
+
+GameState state = WAIT_CHOOSE;
+
+// ---------------- VARIABLES ----------------
+int premio;
+int puertaUsuario;
+int puertaRevelada;
+int puertaFinal;
+
+bool decisionCambio = false;
+bool sdOK = false;
+
+int ledActual = 1;
+unsigned long lastLedTime = 0;
+
+// Debounce
+bool chooseState = LOW, lastChooseReading = LOW;
+bool changeState = LOW, lastChangeReading = LOW;
+unsigned long lastChooseTime = 0;
+unsigned long lastChangeTime = 0;
+
+// ---------------- LEDS ----------------
+void apagarLeds() {
+  digitalWrite(LED_PIN_1, LOW);
+  digitalWrite(LED_PIN_2, LOW);
+  digitalWrite(LED_PIN_3, LOW);
+}
+
+void encenderLed(int p) {
+  apagarLeds();
+  if (p == 1) digitalWrite(LED_PIN_1, HIGH);
+  if (p == 2) digitalWrite(LED_PIN_2, HIGH);
+  if (p == 3) digitalWrite(LED_PIN_3, HIGH);
+}
+
+// ---------------- DEBOUNCE ----------------
+bool debounceButton(int pin, bool &stableState, bool &lastReading, unsigned long &lastTime) {
+  bool reading = digitalRead(pin);
+
+  if (reading != lastReading) lastTime = millis();
+
+  if ((millis() - lastTime) > DEBOUNCE_TIME) {
+    if (reading != stableState) {
+      stableState = reading;
+      if (stableState == HIGH) {
+        lastReading = reading;
+        return true;
+      }
+    }
+  }
+
+  lastReading = reading;
+  return false;
+}
+
+// ---------------- SD ----------------
+void escribirSD() {
+  if (!sdOK) return;
+
+  File f = SD.open("bayes.txt", FILE_WRITE);
+
+  if (f) {
+    f.print("Premio: ");
+    f.print(premio);
+    f.print(" | Eleccion: ");
+    f.print(puertaUsuario);
+    f.print(" | Puerta revelada: ");
+    f.print(puertaRevelada);
+    f.print(" | Resultado: ");
+    f.print(puertaFinal == premio ? "Acierto" : "Fracaso");
+    f.print(" | Decision: ");
+    f.println(decisionCambio ? "Cambio" : "Permanencia");
+    f.close();
+  }
+}
+
+// ---------------- RESET ----------------
+void resetJuego() {
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Starting");
+
+  premio = random(1, 4);
+  decisionCambio = false;
+
+  ledActual = 1;
+  lastLedTime = millis();
+
+  apagarLeds();
+  state = WAIT_CHOOSE;
+}
+
+// ---------------- SETUP ----------------
+void setup() {
+
+  lcd.init();
+  lcd.backlight();
+
+  pinMode(LED_PIN_1, OUTPUT);
+  pinMode(LED_PIN_2, OUTPUT);
+  pinMode(LED_PIN_3, OUTPUT);
+
+  pinMode(BUTTON_CHOOSE, INPUT);
+  pinMode(BUTTON_CHANGE, INPUT);
+
+  randomSeed(analogRead(A1));
+
+  lcd.clear();
+  lcd.print("Comprobando SD");
+
+  sdOK = SD.begin(SD_CS_PIN);
+
+  lcd.clear();
+  lcd.print(sdOK ? "Tarjeta SD OK" : "Error tarjeta SD");
+
+  delay(2000);
+
+  resetJuego();
+}
+
+// ---------------- LOOP ----------------
+void loop() {
+
+  if (state == WAIT_CHOOSE) {
+
+    if (millis() - lastLedTime >= LED_INTERVAL) {
+      lastLedTime = millis();
+      encenderLed(ledActual);
+      ledActual++;
+      if (ledActual > 3) ledActual = 1;
+    }
+
+    if (debounceButton(BUTTON_CHOOSE, chooseState, lastChooseReading, lastChooseTime)) {
+
+      puertaUsuario = ledActual - 1;
+      if (puertaUsuario == 0) puertaUsuario = 3;
+
+      encenderLed(puertaUsuario);
+
+      int opciones[2], n = 0;
+
+      for (int i = 1; i <= 3; i++) {
+        if (i != puertaUsuario && i != premio) opciones[n++] = i;
+      }
+
+      puertaRevelada = opciones[random(n)];
+
+      lcd.clear();
+      lcd.print("No esta en ");
+      lcd.print(puertaRevelada);
+
+      state = FINAL_CHOICE;
+    }
+  }
+
+  else if (state == FINAL_CHOICE) {
+
+    if (debounceButton(BUTTON_CHOOSE, chooseState, lastChooseReading, lastChooseTime)) {
+      puertaFinal = puertaUsuario;
+      decisionCambio = false;
+      escribirSD();
+      state = RESULT;
+    }
+
+    if (debounceButton(BUTTON_CHANGE, changeState, lastChangeReading, lastChangeTime)) {
+      for (int i = 1; i <= 3; i++)
+        if (i != puertaUsuario && i != puertaRevelada) puertaFinal = i;
+
+      decisionCambio = true;
+      escribirSD();
+      state = RESULT;
+    }
+  }
+
+  else if (state == RESULT) {
+
+    lcd.clear();
+
+    lcd.setCursor(0, 0);
+    lcd.print("Premio en ");
+    lcd.print(premio);
+
+    lcd.setCursor(0, 1);
+    lcd.print(puertaFinal == premio ? "Acierto        " : "Fracaso        ");
+
+    encenderLed(premio);
+
+    if (debounceButton(BUTTON_CHOOSE, chooseState, lastChooseReading, lastChooseTime) ||
+        debounceButton(BUTTON_CHANGE, changeState, lastChangeReading, lastChangeTime)) {
+      resetJuego();
+    }
+  }
+}

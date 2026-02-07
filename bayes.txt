@@ -1,0 +1,12 @@
+
+Premio: 3 | Eleccion: 3 | Puerta revelada: 2 | Resultado: Acierto | Decision: Permanencia
+Premio: 1 | Eleccion: 1 | Puerta revelada: 3 | Resultado: Fracaso | Decision: Cambio
+Premio: 3 | Eleccion: 1 | Puerta revelada: 2 | Resultado: Fracaso | Decision: Permanencia
+Premio: 3 | Eleccion: 2 | Puerta revelada: 1 | Resultado: Acierto | Decision: Cambio
+Premio: 2 | Eleccion: 2 | Puerta revelada: 3 | Resultado: Fracaso | Decision: Cambio
+Premio: 2 | Eleccion: 1 | Puerta revelada: 3 | Resultado: Acierto | Decision: Cambio
+Premio: 2 | Eleccion: 2 | Puerta revelada: 3 | Resultado: Fracaso | Decision: Cambio
+Premio: 3 | Eleccion: 2 | Puerta revelada: 1 | Resultado: Acierto | Decision: Cambio
+Premio: 2 | Eleccion: 3 | Puerta revelada: 1 | Resultado: Acierto | Decision: Cambio
+Premio: 3 | Eleccion: 2 | Puerta revelada: 1 | Resultado: Acierto | Decision: Cambio
+Premio: 1 | Eleccion: 2 | Puerta revelada: 3 | Resultado: Acierto | Decision: Cambio
